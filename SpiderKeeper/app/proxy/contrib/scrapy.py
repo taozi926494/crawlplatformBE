@@ -121,7 +121,11 @@ class ScrapydProxy(SpiderServiceProxy):
         :param spider_name: 爬虫名称
         :return: 返回启动的爬虫的id, 启动不成功, 返回None
         """
-        data = self.scrapyd_api.schedule(project_name, spider_name)
+        data = self.scrapyd_api.schedule(
+            project_name,
+            spider_name,
+            pro_name=project_name
+        )
         return data if data else None
 
     def cancel_spider(self, project_name, job_id):

@@ -10,12 +10,6 @@ import datetime
 # 注册调度蓝本
 api_schedulers_bp = Blueprint('schedulers', __name__)
 
-@app.route('/testschedulerapi')
-def schedulerapi():
-    return json.dumps({
-        'code': 200,
-        'status': 'ok'
-    })
 
 @app.route("/addproject", methods=['post'])
 def add_project():
@@ -29,10 +23,10 @@ def add_project():
     :param: egg_file: 待上传的爬虫项目的egg文件
     :return: 返回数据格式: json, 部署成功,返回success, 否则返回error
     """
-    print('------- add project')
     status = 'error'
-    # 将信息保存到数据库
     project = Project()
+    is_msd = request.form.get('is_msd')  # 工程名
+    project.is_msd = is_msd
     project.project_name = request.form.get('project_name')  # 工程名
     project.project_alias = request.form.get('project_alias')  # 工程备注
     project.for_project = request.form.get('for_project', None)  # 引用工程
@@ -42,40 +36,49 @@ def add_project():
         datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S')
     project.date_modified = datetime.datetime.now().strptime(
         datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S')
+
+
+    if not is_msd:
+        return json.dumps({"code": 500, "status": '项目类型不能为空, 项目类型为分布式or单机'})
     # 判断是否有值输入
     if request.form.get('project_name') == '' or request.form.get('project_alias') == '':
         return json.dumps({"code": 200, "status": 'no input!'})
-
-    print('----------project info ', project.project_name, project.project_alias)
 
     # 判断工程名是否存在
     existed_project = project.query.filter_by(project_name=request.form['project_name']).first()
     # 工程存在则不能保存信息以及部署, 不存在则正常部署
     if existed_project:
         return json.dumps({"code": 200, "status": 'existed'})
-    # 获取上传文件
-    master_egg = request.files['master_egg']
-    slave_egg = request.files['slave_egg']
 
-    print(master_egg, slave_egg)
+    egg_path_dict = {}  # 用于存放egg文件保存路径
 
-    # 判断表单是否传入文件
-    if master_egg:
-        filename = secure_filename(master_egg.filename)  # 获取文件名
-        dst_master_egg = os.path.join(tempfile.gettempdir(), filename)  # 拼接文件路径
-        master_egg.save(dst_master_egg)  # 保存文件
+    if is_msd == '0':  # 如果为单机爬虫
+        egg = request.files['egg']
+        if egg:
+            filename = secure_filename(egg.filename)  # 获取egg文件名
+            dst_egg = os.path.join(tempfile.gettempdir(), filename)  # 拼接文件路径
+            egg.save(dst_egg)  # 保存egg文件
+            egg_path_dict['egg'] = dst_egg  # 将项目文件路径保存到egg路径字典中
+        else:  # 如果有一个没有上传文件
+            return json.dumps({"code": 500, "status": ' egg file are must'})
+    else:
+        # 获取上传文件
+        master_egg = request.files['master_egg']
+        slave_egg = request.files['slave_egg']
         # 判断表单是否传入文件
-    if slave_egg:
-        filename = secure_filename(slave_egg.filename)  # 获取文件名
-        dst_slave_egg = os.path.join(tempfile.gettempdir(), filename)  # 拼接文件路径
-        slave_egg.save(dst_slave_egg)  # 保存文件
-    # dist_list = [dst_master_egg, dst_slave_egg]
-    egg_path_dict = {
-        "master": dst_master_egg,
-        "slave": dst_slave_egg
-    }
-    # 使用scrapyd_api进行部署, 部署成功返回True, 失败返回False
-    if agent.deploy(project, egg_path_dict):
+        if master_egg and slave_egg:
+            master_filename = secure_filename(master_egg.filename)  # 获取master文件名
+            slave_filename = secure_filename(slave_egg.filename)  # 获取slave文件名
+            dst_master_egg = os.path.join(tempfile.gettempdir(), master_filename)  # 拼接文件路径
+            dst_slave_egg = os.path.join(tempfile.gettempdir(), slave_filename)  # 拼接文件路径
+            slave_egg.save(dst_slave_egg)  # 保存slave文件
+            master_egg.save(dst_master_egg)  # 保存master文件
+            egg_path_dict['master'] = dst_master_egg  # 将master项目文件路径保存到egg路径字典中
+            egg_path_dict['slave'] = dst_slave_egg  # 将slave项目文件路径保存到egg路径字典中
+        else:  # 如果有一个没有上传文件
+            return json.dumps({"code": 500, "status": 'master and slave egg are must'})
+
+    if agent.deploy(project, egg_path_dict, is_msd):
         status = 'success'
         # 部署成功后才将数据保存至数据库
         db.session.add(project)
@@ -98,6 +101,7 @@ def del_project():
         # 依据id检索工程
         project = Project.query.filter_by(project_name=project_name).first()
         # 判断scrapyd服务器是否删除成功, 成功则进行数据库同步, 并返回status
+
         if agent.delete_project(project):
             # 删除工程
             db.session.delete(project)
@@ -162,6 +166,27 @@ def run_once():
         return json.dumps({"code": 200, "status": "success"})
     except Exception as e:
         return json.dumps({"code": 500, "status": "error", "msg": "运行错误"})
+
+
+@app.route("/cancelspider", methods=['post'])
+def cancel_spider():
+    """
+    功能: 取消运行爬虫
+    :param: project_id: 工程id
+    :return: json.dumps({"code": 200, "status": "success/e"}), e指具体抛出的异常
+    """
+
+    try:
+        # 获取工程id参数
+        project_id = request.form.get('project_id')
+        project_name = request.form.get('project_name')
+        index = int(request.form.get('index'))  # 获取正在执行的爬虫index
+        job_execution = JobExecution.query.filter_by(project_id=project_id).all()[index]
+        agent.cancel_spider(job_execution, project_name)
+        return json.dumps({"code": 200, "status": "success"})
+    except Exception as e:
+        return json.dumps({"code": 500, "status": "error", "msg": "取消失败"})
+
 
 
 @app.route("/addscheduler", methods=['post'])
@@ -275,6 +300,7 @@ def remove_job():
     #     return json.dumps({"code": 200, "status": "success"})
     # except Exception as e:
     #     return json.dumps({"code": 200, "status": str(e)})
+
 
 
 

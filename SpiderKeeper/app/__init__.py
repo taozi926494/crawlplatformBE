@@ -18,7 +18,6 @@ app.config.from_object(config)
 # 允许跨域请求
 CORS(app, resources=r'/*')
 cors = CORS(app, supports_credentials=True)
-
 login_manager = LoginManager()  # 初始化flask_login
 login_manager.session_protection = 'strong'  # 设置登录安全级别
 login_manager.login_view = 'login'  # 指定了未登录时跳转的页面

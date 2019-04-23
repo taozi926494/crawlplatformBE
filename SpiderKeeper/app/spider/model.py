@@ -8,12 +8,12 @@ class Project(Base):
     Project爬虫项目ORM类
     """
     __tablename__ = 'sk_project'
-
-    project_name = db.Column(db.String(50))
+    project_name = db.Column(db.String(50), unique=True)
     applicant = db.Column(db.String(50))  # 申请人
     developers = db.Column(db.String(50))  # 项目的开发者
     for_project = db.Column(db.String(50))  # 提出需求的项目
     project_alias = db.Column(db.String(100))  # 项目的备注
+    is_msd = db.Column(db.String(50))  # 是否是主从分布式爬虫 0 单机爬虫 1 分布式爬虫
 
     @classmethod
     def load_project(cls, project_list):
@@ -45,7 +45,8 @@ class Project(Base):
             developers=self.developers,
             for_project=self.for_project,
             project_alias=self.project_alias,
-            create_time=str(self.date_created)
+            create_time=str(self.date_created),
+            is_msd=self.is_msd
         )
 
 
@@ -309,5 +310,3 @@ class JobExecution(Base):
             hour_key = job_execution.create_time.strftime('%Y-%m-%d %H:00:00')
             result[hour_key] += 1
         return [dict(key=hour_key, value=result[hour_key]) for hour_key in hour_keys]
-
-
