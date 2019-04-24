@@ -242,12 +242,15 @@ class SpiderAgent():
 
     def cancel_spider(self, job_execution, project_name):
         """
-
-        :param job_execution:
-        :return:
+        取消某个项目下所有scrapyd服务器上的执行任务
+        :param job_execution: 任务执行记录
+        :param project_name: 任务执行的项目名
         """
+        # 轮训爬虫代码运行的服务器列表
         for spider_service_instance in self.spider_service_instances_master + self.spider_service_instances_slave:
             if spider_service_instance.server in job_execution.running_on:
+                # 切割某项目任务执行历史id, 该值是由所有执行任务服务器上scrapyd的任务id拼接而成
+                # 取消所有scrapyd服务器上的执行任务
                 for job_id in job_execution.service_job_execution_id.split('>'):
                     if spider_service_instance.cancel_spider(project_name, job_id):
                         job_execution.end_time = datetime.datetime.now()

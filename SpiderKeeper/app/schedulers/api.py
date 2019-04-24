@@ -181,6 +181,7 @@ def cancel_spider():
         project_id = request.form.get('project_id')
         project_name = request.form.get('project_name')
         index = int(request.form.get('index'))  # 获取正在执行的爬虫index
+        # 同一个项目id可能有多条执行任务记录, 因此需要获取index来判断要取消某个项目id下的第几条执行任务
         job_execution = JobExecution.query.filter_by(project_id=project_id).all()[index]
         agent.cancel_spider(job_execution, project_name)
         return json.dumps({"code": 200, "status": "success"})
@@ -252,54 +253,7 @@ def remove_job():
         return json.dumps({"code": 500, "status": "error", "msg": "移除错误"})
 
 
-    # """
-    # 功能: 如果是一次性运行方式, 首先将jobInstance保存数据库, 然后使用agent.start_spider立即启动爬虫
-    #     　如果是周期方式性运行,　则只是将obInstance保存数据库,　之后有每隔30秒的方式扫面检测启动爬虫
-    # :return: 返回数据格式json, 运行爬虫成功, 返回success, 否则返回抛出的error
-    # """
-    # try:
-    #     # 工程名称
-    #     project_name = request.form.get('project_name')
-    #     # 爬虫名称
-    #     spider_name = request.form.get('spider_name')
-    #     # 实例化jobIinstance
-    #     job_instance = JobInstance()
-    #     # 将信息保存到jobIinstance裤, 爬虫名称
-    #     job_instance.spider_name = spider_name
-    #     # 工程的id
-    #     job_instance.project_id = Project.query.filter_by(project_name=project_name).first().id
-    #     # 爬虫的参数
-    #     job_instance.spider_arguments = request.form['spider_arguments']
-    #     # 爬虫的优先级
-    #     job_instance.priority = request.form.get('priority', 0)
-    #     # 运行的类型
-    #     job_instance.run_type = request.form['run_type']
-    #     # 设置为守护进行
-    #     if request.form['daemon'] != 'auto':
-    #         spider_args = []
-    #         # 获取爬虫传入的参数
-    #         if request.form['spider_arguments']:
-    #             spider_args = request.form['spider_arguments'].split(",")
-    #         spider_args.append("daemon={}".format(request.form['daemon']))
-    #         # 保存爬虫参数
-    #         job_instance.spider_arguments = ','.join(spider_args)
-    #     # 判断爬虫的运行类型, 单次运行job_instance.enabled = -1, 保存信息后立即运行
-    #     if job_instance.run_type == JobRunType.ONETIME:
-    #         job_instance.enabled = -1
-    #         db.session.add(job_instance)
-    #         db.session.commit()
-    #         # 启动爬虫
-    #         agent.start_spider(job_instance)
-    #     # 如果爬虫是周期方式运行, 获取周期信息
-    #     if job_instance.run_type == JobRunType.PERIODIC:
-    #         job_instance.start_run_time = request.form.get("start_time")
-    #         job_instance.stride = request.form.get("stride")
-    #         # 信息的保存
-    #         db.session.add(job_instance)
-    #         db.session.commit()
-    #     return json.dumps({"code": 200, "status": "success"})
-    # except Exception as e:
-    #     return json.dumps({"code": 200, "status": str(e)})
+
 
 
 
