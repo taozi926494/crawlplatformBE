@@ -18,7 +18,6 @@ app.config.from_object(config)
 # 允许跨域请求
 CORS(app, resources=r'/*')
 cors = CORS(app, supports_credentials=True)
-
 login_manager = LoginManager()  # 初始化flask_login
 login_manager.session_protection = 'strong'  # 设置登录安全级别
 login_manager.login_view = 'login'  # 指定了未登录时跳转的页面
@@ -90,7 +89,7 @@ def init_database():
 # SpiderAgent 爬虫代理服务类, 其实也就是把多个爬虫服务代理的实例统一做一遍轮询操作
 from SpiderKeeper.app.proxy.spiderctrl import SpiderAgent
 from SpiderKeeper.app.proxy.contrib.scrapy import ScrapydProxy
-from SpiderKeeper.app.machine.model import Serversmachine
+from SpiderKeeper.app.param_config.model import Serversmachine
 
 agent = SpiderAgent()  # 实例化一个蜘蛛
 
@@ -108,7 +107,7 @@ from SpiderKeeper.app.spider.controller import ctrl_spider_bp
 from SpiderKeeper.app.user.api import api_user_bp
 from SpiderKeeper.app.spider.api import api_spider_bp
 from SpiderKeeper.app.schedulers.api import api_schedulers_bp
-from SpiderKeeper.app.machine.api import api_machine_bp
+from SpiderKeeper.app.param_config.api import api_machine_bp
 
 app.register_blueprint(api_spider_bp)
 app.register_blueprint(api_user_bp)

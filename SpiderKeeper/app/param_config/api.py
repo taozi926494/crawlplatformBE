@@ -1,4 +1,4 @@
-from SpiderKeeper.app.machine.model import *
+from SpiderKeeper.app.param_config.model import *
 from SpiderKeeper.app.spider.model import *
 from flask import Blueprint, request
 from SpiderKeeper.app import app, agent, db
@@ -7,7 +7,7 @@ from SpiderKeeper.app.proxy.contrib.scrapy import ScrapydProxy
 
 
 # 注册蓝本
-api_machine_bp = Blueprint('machine', __name__)
+api_machine_bp = Blueprint('param_config', __name__)
 
 
 @app.route("/addmachine", methods=['POST'])
@@ -129,7 +129,7 @@ def del_developer():
         developer = Developer()
         developer_name = request.args.get('developer_name')
         if not developer_name:
-            return json.dumps({"code": 500, "status": "error", "msg": "获取人员姓名出错"})
+            return json.dumps({"code": 500, "status": "error", "msg": "开发人员姓名不能为空"})
         developers = developer.query.filter_by(developer_name=developer_name).all()
         if developers:
             for person in developers:
@@ -148,17 +148,18 @@ def list_developer():
              [
              {'id':1,
              'developer_name':'陈林翠',
-             'developer_role':'正式员工'，
-             'developer_status':'在职'}
+             'developer_role':'0'，
+             'developer_status':'1'}
              ]
              失败则返回空列表
     """
 
     try:
+        # 先按照开发人员就职状态排序(在职人员在前), 在按照开发人员性质排序(正式员工在前)
         developers = Developer.query.order_by(Developer.developer_status, Developer.developer_role).all()
         data = []
         for developer in developers:
-            developer_dict = developer.to_dict()
+            developer_dict = developer.to_dict()  # 将查询的记录打包成字典返回给前端
             data.append(developer_dict)
         return json.dumps({'code': 200, 'data': data})
     except Exception as e:
@@ -194,189 +195,3 @@ def update_developer():
     except Exception as e:
         return json.dumps({"code": 500, "status": "error", "msg": "修改错误"})
 
-
-@app.route('/citeadd', methods=['get'])
-def citeadd():
-    try:
-        name = request.args.get('name')
-        obj = CiteProject(name=name)
-        db.session.add(obj)
-        db.session.commit()
-        return json.dumps({"code": 200, "status": "sucess", "msg": "添加成功"})
-    except:
-        return json.dumps({"code": 500, "status": "error", "msg": "添加失败"})
-
-
-@app.route('/themeadd', methods=['get'])
-def themeadd():
-    try:
-        name = request.args.get('name')
-        obj = ThemeProject(name=name)
-        db.session.add(obj)
-        db.session.commit()
-        return json.dumps({"code": 200, "status": "sucess", "msg": "添加成功"})
-    except:
-        return json.dumps({"code": 500, "status": "error", "msg": "添加失败"})
-
-
-@app.route('/industryadd', methods=['get'])
-def industryadd():
-    try:
-        name = request.args.get('name')
-        obj = IndustryProject(name=name)
-        db.session.add(obj)
-        db.session.commit()
-        return json.dumps({"code": 200, "status": "sucess", "msg": "添加成功"})
-    except:
-        return json.dumps({"code": 500, "status": "error", "msg": "添加失败"})
-
-
-@app.route('/citedel', methods=['get'])
-def citedel():
-    try:
-        '''删除项目引用库的某条记录'''
-        # 获取参数
-        name = request.args.get('name')
-        # 先查询到有待删除的记录
-        obj = CiteProject.query.filter_by(name=name).first()
-        # 删除记录
-        db.session.delete(obj)
-        # 提交删除
-        db.session.commit()
-
-        '''同时删除该条记录对应的所有工程的标签信息中的该条记录'''
-        objs = TagProjectShip.query.filter_by(cite_name=name).all()
-        for obj in objs:
-            obj.cite_name = None
-            db.session.commit()
-        return json.dumps({"code": 200, "status": "sucess", "msg": "删除成功"})
-    except:
-        return json.dumps({"code": 500, "status": "error", "msg": "删除失败"})
-
-
-@app.route('/themedel', methods=['get'])
-def themedel():
-    try:
-        name = request.args.get('name')
-        obj = ThemeProject.query.filter_by(name=name).first()
-        db.session.delete(obj)
-        db.session.commit()
-
-        '''同时删除该条记录对应的所有工程的标签信息中的该条记录'''
-        objs = TagProjectShip.query.filter_by(theme_name=name).all()
-        for obj in objs:
-            obj.theme_name = None
-            db.session.commit()
-        return json.dumps({"code": 200, "status": "sucess", "msg": "删除成功"})
-    except:
-        return json.dumps({"code": 500, "status": "error", "msg": "删除失败"})
-
-
-@app.route('/industrydel', methods=['get'])
-def industrydel():
-    try:
-        name = request.args.get('name')
-        obj = IndustryProject.query.filter_by(name=name).first()
-        db.session.delete(obj)
-        db.session.commit()
-
-        '''同时删除该条记录对应的所有工程的标签信息中的该条记录'''
-        objs = TagProjectShip.query.filter_by(industry_name=name).all()
-        for obj in objs:
-            obj.industry_name = None
-            db.session.commit()
-        return json.dumps({"code": 200, "status": "sucess", "msg": "删除成功"})
-    except:
-        return json.dumps({"code": 500, "status": "error", "msg": "删除失败"})
-
-
-@app.route('/citeupdate', methods=['get'])
-def citeupdate():
-    try:
-        name = request.args.get('name')
-        old_name = request.args.get('old_name')
-        obj = CiteProject.query.filter_by(name=old_name).first()
-        obj.name = name
-        db.session.commit()
-
-        '''同时更新该条记录对应的所有工程的标签信息中的该条记录'''
-        objs = TagProjectShip.query.filter_by(cite_name=old_name).all()
-        for obj in objs:
-            obj.cite_name = name
-            db.session.commit()
-        return json.dumps({"code": 200, "status": "sucess", "msg": "更新成功"})
-    except:
-        return json.dumps({"code": 500, "status": "error", "msg": "更新失败"})
-
-
-@app.route('/themeupdate', methods=['get'])
-def themeupdate():
-    try:
-        name = request.args.get('name')
-        old_name = request.args.get('old_name')
-        obj = ThemeProject.query.filter_by(name=old_name).first()
-        obj.name = name
-        db.session.commit()
-
-        '''同时更新该条记录对应的所有工程的标签信息中的该条记录'''
-        objs = TagProjectShip.query.filter_by(theme_name=old_name).all()
-        for obj in objs:
-            obj.theme_name = name
-            db.session.commit()
-        return json.dumps({"code": 200, "status": "sucess", "msg": "更新成功"})
-    except:
-        return json.dumps({"code": 500, "status": "error", "msg": "更新失败"})
-
-
-@app.route('/industryupdate', methods=['get'])
-def industryupdate():
-    try:
-        name = request.args.get('name')
-        old_name = request.args.get('old_name')
-        obj = IndustryProject.query.filter_by(name=old_name).first()
-        obj.name = name
-        db.session.commit()
-
-        '''同时更新该条记录对应的所有工程的标签信息中的该条记录'''
-        objs = TagProjectShip.query.filter_by(industry_name=old_name).all()
-        for obj in objs:
-            obj.industry_name = name
-            db.session.commit()
-        return json.dumps({"code": 200, "status": "sucess", "msg": "更新成功"})
-    except:
-        return json.dumps({"code": 500, "status": "error", "msg": "更新失败"})
-
-
-@app.route('/editprojectbaseinfo', methods=['post'])
-def edit_project_base_info():
-    """
-    功能：对工程的基础信息进行更新
-    传入参数三个列表: 开发人列表、申请人列表、工程标签列表
-    :return:
-    """
-    try:
-        project_name_old = request.form.get('project_name_old')  # 项目的英文名
-        project_name = request.form.get('project_name')  # 项目的英文名
-        project_name_alias = request.form.get('project_name_alias')  # 项目的中文名
-        developers_list = request.form.get('developers')  # 项目的开发者
-        applicants_list = request.form.get('applicants')  # 项目的申请者
-        tags_dict = request.form.get('tags')  # 项目的分类标签
-
-        # 修改工程标的信息
-        obj = Project.query.filter_by(name=project_name_old).first()
-        obj.name = project_name
-        obj.project_alias = project_name_alias
-        obj.applicant = ';'.join(applicants_list)
-        db.session.commit()
-
-        # 修改关系映射表的信息
-        obj = TagProjectShip.query.filter_by(project_name=project_name_old).first()
-        obj.project_name = project_name
-        obj.cite_name = tags_dict.get('cite_name')
-        obj.theme_name = tags_dict.get('theme_name')
-        obj.industry_name = tags_dict.get('industry_name')
-        obj.developers_name = ';'.join(developers_list)
-        db.session.commit()
-        return json.dumps({"code": 200, "status": "sucess", "msg": "修改成功"})
-    except:
-        return json.dumps({"code": 500, "status": "error", "msg": "修改失败"})

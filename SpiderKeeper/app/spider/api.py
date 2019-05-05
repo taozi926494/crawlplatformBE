@@ -1,9 +1,11 @@
 from flask import Blueprint, request
 import json
 from SpiderKeeper.app.spider.model import JobInstance, Project, JobExecution, SpiderInstance, JobRunType
-from SpiderKeeper.app import app,agent
+from SpiderKeeper.app.param_config.model import *
+from SpiderKeeper.app import app, agent
 from flask import render_template
 import requests
+from SpiderKeeper.app import db
 
 
 api_spider_bp = Blueprint('spider', __name__)
@@ -13,6 +15,15 @@ switcher = {
     1: "RUNNING",
     2: "FINISHED",
 }
+
+
+@app.route("/", methods=['get'])
+def index():
+    """
+    功能: 用户首页
+    :return:
+    """
+    return render_template('index.html')
 
 
 @app.route("/allproject", methods=['get'])
@@ -31,6 +42,7 @@ def get_project_info():
           "project_alias": "深圳市共享开放平台",
           "project_id": 1,
           "project_name": "opendata_sz",
+          "is_msd": "0"
           "status": "FINISGED"
         }]}
     """
@@ -73,7 +85,8 @@ def get_all_spiders_info():
     # 保存数据的临时列表
     data = []
     # 遍历实例数据库, 获取爬虫信息
-    for spider in JobInstance.query.all()[-100:]:
+    job_instance = JobInstance.query.order_by(JobInstance.date_created).group_by(JobInstance.project_id).all()
+    for spider in job_instance:
         # 得到实例的字典信息
         _temp = spider.to_dict()
         # 依据工程id查找Project数据库, 获取工程名以及备注信息
@@ -96,13 +109,14 @@ def get_all_spiders_info():
             project_id=_temp['project_id'],
             project_name=project_base_info.project_name,
             project_alias=project_base_info.project_alias,
-            spider_id=JobInstance.query.filter_by(spider_name=_temp['spider_name']).first().id,
+            spider_id=SpiderInstance.query.filter_by(project_id=_temp['project_id']).first().id,
             spider_name=_temp['spider_name'],
             spider_alias=_temp['desc'],
             last_run_status=status,
             last_run_time=str(last_run_time).split('.')[0],
             run_type=_temp['run_type'],
-            job_exec_id=service_job_execution_id
+            job_exec_id=service_job_execution_id,
+            is_msd=project_base_info.is_msd
         )
         data.append(_dict)
     return json.dumps({"code": 200, 'data': data})
@@ -174,7 +188,7 @@ def get_single_project_info():
                 # 获取实例对象的最后一次运行时间
                 spider_job_execution = JobExecution.query.filter_by(
                     job_instance_id=spider_to_job_instance_dict['job_instance_id']).all()
-                if len(spider_job_execution)>0:
+                if len(spider_job_execution) > 0:
                     last_run_time = spider_job_execution[-1].end_time
                     # 获取状态信息
                     _status = spider_job_execution[-1].running_status
@@ -207,7 +221,8 @@ def get_single_project_info():
         developers=project_info.developers,
         for_project=project_info.for_project,
         applicant=project_info.applicant,
-        spiders=spiders_info_list
+        spiders=spiders_info_list,
+        is_msd=project_info.is_msd
     )
     # 数据以列表格式返回
     return json.dumps({"code": 200, 'data': _dict})
@@ -274,4 +289,3 @@ def slavelog():
     else:
         raw = '\n'.join(raw)
     return json.dumps({"code": 200, 'log': raw.split('\n')})
-
